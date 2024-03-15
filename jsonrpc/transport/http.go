@@ -3,6 +3,7 @@ package transport
 import (
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/umbracle/ethgo/jsonrpc/codec"
 	"github.com/valyala/fasthttp"
@@ -10,6 +11,7 @@ import (
 
 // HTTP is an http transport
 type HTTP struct {
+	seq     uint64
 	addr    string
 	client  *fasthttp.Client
 	headers map[string]string
@@ -25,6 +27,10 @@ func newHTTP(addr string, headers map[string]string) *HTTP {
 	}
 }
 
+func (h *HTTP) incSeq() uint64 {
+	return atomic.AddUint64(&h.seq, 1)
+}
+
 // Close implements the transport interface
 func (h *HTTP) Close() error {
 	return nil
@@ -33,8 +39,10 @@ func (h *HTTP) Close() error {
 // Call implements the transport interface
 func (h *HTTP) Call(method string, out interface{}, params ...interface{}) error {
 	// Encode json-rpc request
+	seq := h.incSeq()
 	request := codec.Request{
 		JsonRPC: "2.0",
+		ID:      seq,
 		Method:  method,
 	}
 	if len(params) > 0 {
